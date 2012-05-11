@@ -42,9 +42,6 @@ class TriangleSolver
   
   # solve an file
   def solve
-    
-    puts ("filename : #{@fileName}")
-    
     if !File.file? @fileName and !File.readable? @fileName
       puts "Incorrect file name or insufficient rights for " + @fileName
     else
