@@ -1,0 +1,7 @@
+README
+=============================
+To run the program you will need to have installed
+ruby 1.9.*, then just set the execution right to the file
+and execute it.
+
+To see the options launch the program with the -h option.
