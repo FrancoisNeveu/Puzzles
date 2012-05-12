@@ -7,10 +7,15 @@ class JugglerFest
   def initialize 
     @filename = ""
     @outputname = ""
-    @jogglerPerCircuit = 0
+    @jugglerPerCircuit = 0
+    # {name => "", {:h => 0, :e => 0, }}
+    @jugglers = Hash.new 
+
+    # {name => "", {:h => 0, :e => 0, :circuit => []}}
+    @circuits = Hash.new 
   end
 
-  def setFilename (input, output)
+  def setFilenames (input, output)
     @filename = input
     @outputname = output
   end
@@ -30,12 +35,15 @@ class JugglerFest
   # parse, fill the data structures, then compute dot products
   # Compute line up and pretty print the output
   def generate
-    if !File.file? @fileName and !File.readable? @fileName
-      puts "Incorrect file name or insufficient rights for " + @fileName
+    if !File.file?(@filename) and !File.readable?(@filename)
+      puts "Incorrect file name or insufficient rights for " + @filename
     else
       file = File.new @filename, "r"
-      self.parseAndFill(file)
-      
+      begin
+        self.parseAndFill(file)
+      rescue
+        puts "Line up generation aborted because an exception was raise!"
+      end
     end
    
   end
@@ -43,13 +51,24 @@ class JugglerFest
   
   def parseAndFill(file)
     begin
+      line_num = 1
+      temp = Array.new
       file.readlines.each do |line|
-        puts line
+        if line =~ (/C *\w+ *H:\d+ *E:\d+ *P:\d+ *$/)
+          temp = line.split(" ")
+          @circuits[temp[1]]= {:h => temp[2].split(":")[1], :e => temp[3].split(":")[1], :p => temp[4].split(":")[1]}
+        elsif line =~ (/J *\w+ *H:\d+ *E:\d+ *P:\d+ *(\w+,)*\w+ *$/)
+          temp = line.split(" ")
+          @jugglers[temp[1]] = {:h => temp[2].split(":")[1], :e => temp[3].split(":")[1], :p => temp[4].split(":")[1], :circuit => temp[5].split(",")}
+        elsif line.match(/([\w+])\n$/)
+          raise "The file \"#{@filename}\" is not properly formatted\nline: #{line_num}\n\"#{line}\""
+        end
+      line_num += 1
+      temp.clear
       end
-    end
   rescue => err
-    puts "Exception: #{err}"
-    err
+    puts "File Syntax Exception: #{err}"
+    raise 
   end
  end
 
@@ -76,7 +95,8 @@ lineupGenerator = JugglerFest.new
 
 
 # Set input file and output file name
-lineupGenerator.setFilenames(ARGV.first, ARGV.last)
+# lineupGenerator.setFilenames(ARGV.first.to_s, ARGV.last.to_s)
+lineupGenerator.setFilenames("jugglefest.txt", "jugglefest_output.txt")
 # Launch the computation
 lineupGenerator.generate
 
