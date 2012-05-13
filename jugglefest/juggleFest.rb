@@ -8,17 +8,22 @@ class JugglerFest
     @filename = ""
     @outputname = ""
     @jugglerPerCircuit = 0
-    # {name => "", {:h => 0, :e => 0, }}
+    # {:name => {:h => 0, :e => 0, }}
     @jugglers = Hash.new 
 
-    # {name => "", {:h => 0, :e => 0, :circuit => []}}
+    # {:name =>  {:h => 0, :e => 0, :circuit => []}}
     @circuits = Hash.new 
+
+    # {:name => {:circuit_name => match_value}}
+    @matchs = Hash.new
   end
 
   def setFilenames (input, output)
     @filename = input
     @outputname = output
   end
+
+
 
   # dot product of 3 dimension arrays x and y
   # result is typed in float
@@ -41,6 +46,7 @@ class JugglerFest
       file = File.new @filename, "r"
       begin
         self.parseAndFill(file)
+        #self.computeDotAndFill
       rescue
         puts "Line up generation aborted because an exception was raise!"
       end
@@ -56,20 +62,35 @@ class JugglerFest
       file.readlines.each do |line|
         if line =~ (/C *\w+ *H:\d+ *E:\d+ *P:\d+ *$/)
           temp = line.split(" ")
-          @circuits[temp[1]]= {:h => temp[2].split(":")[1], :e => temp[3].split(":")[1], :p => temp[4].split(":")[1]}
+          @circuits[temp[1].to_sym]= {:h => temp[2].split(":")[1], :e => temp[3].split(":")[1], :p => temp[4].split(":")[1]}
         elsif line =~ (/J *\w+ *H:\d+ *E:\d+ *P:\d+ *(\w+,)*\w+ *$/)
           temp = line.split(" ")
-          @jugglers[temp[1]] = {:h => temp[2].split(":")[1], :e => temp[3].split(":")[1], :p => temp[4].split(":")[1], :circuit => temp[5].split(",")}
+          p_name = temp[1].to_sym
+          @jugglers[p_name] = {:h => temp[2].split(":")[1], :e => temp[3].split(":")[1], :p => temp[4].split(":")[1], :circuit => nil}
+          
+          # iterate the circuit array and compute match 
+          #score to store it with each circuit
+          temp[5].split(",").each { |c|
+            name = c.to_sym
+            x = [@jugglers[p_name][:h], @jugglers[p_name][:e], @jugglers[p_name][:p]]
+            y = [@circuits[name][:h], @circuits[name][:e], @circuits[name][:p]]
+            @jugglers[p_name][:circuit] = {c.to_sym => dotProduct(x, y)}
+           # p @jugglers[p_name][:circuit]
+          }
+
+          @jugglers[temp[1].to_sym][:circuit]
+
         elsif line.match(/([\w+])\n$/)
           raise "The file \"#{@filename}\" is not properly formatted\nline: #{line_num}\n\"#{line}\""
         end
       line_num += 1
-      temp.clear
       end
   rescue => err
     puts "File Syntax Exception: #{err}"
     raise 
   end
+  @jugglerPerCircuit = @jugglers.count / @circuits.count
+  puts "#{@jugglerPerCircuit} jugglers per circuit detected."
  end
 
 end
