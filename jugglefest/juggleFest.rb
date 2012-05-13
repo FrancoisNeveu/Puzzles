@@ -14,7 +14,7 @@ class JugglerFest
     # {:name =>  {:h => 0, :e => 0, :circuit => []}}
     @circuits = Hash.new 
 
-    # {:name => {:circuit_name => match_value}}
+    # {:circuit_ name => [:name1, :name2,..]}}
     @matchs = Hash.new
   end
 
@@ -44,17 +44,74 @@ class JugglerFest
       puts "Incorrect file name or insufficient rights for " + @filename
     else
       file = File.new @filename, "r"
-      begin
+    #  begin
         self.parseAndFill(file)
-        #self.computeDotAndFill
-      rescue
-        puts "Line up generation aborted because an exception was raise!"
-      end
+        self.fillMatches
+        self.generateOutput
+     # rescue
+       # puts "Line up generation aborted because an exception was raised!"
+      #end
     end
    
   end
 
-  
+  # compute the lineup
+  def fillMatches 
+    @jugglers.each do |k, v|
+      circuits = v[:circuits]
+      keys = circuits.keys
+      puts "========== KEY =========="
+      p keys
+      i = 0
+      while i < keys.count
+        if @matchs[keys[i]].nil?
+          @matchs[keys[i]] = Array.new()
+          @matchs[keys[i]]  = @matchs[keys[i]] << [k, @jugglers[k][:circuits][keys[i]]]
+        elsif @matchs[keys[i]].count < @jugglerPerCircuit
+          @matchs[keys[i]] = @matchs[keys[i]] << [k, @jugglers[k][:circuits][keys[i]]]
+          p @matchs
+          puts "Still place in array"
+        else
+            puts "non more place"
+           p @matchs
+           ar = @matchs[keys[i]]
+           ar.sort_by! {|x, y| y <=> x[1]}
+           @matchs[keys[i]] = ar
+           p @matchs
+            array_size =  @matchs[keys[i]].count
+          if @matchs[keys[i]][array_size - 1][1] < circuits[keys[i]] 
+            @matchs[keys[i]][array_size - 1][1] = circuits[keys[i]]
+          end
+        end
+      i = i + 1
+      end 
+      puts "player #{k.inspect} treated || @matchs : #{@matchs}"
+    end
+  end
+
+
+  def generateOutput
+    file  = File.new( @outputname, "w")
+    @matchs.each do |k, v|
+      line = ""
+      line = k.to_s + " "
+      v.each do |name, value|
+        line += name.to_s + " "
+        i = 1
+        @jugglers[name][:circuits].each { |c_name, dot|
+          line += c_name.to_s + ":" + dot.to_i.to_s
+          if i < @jugglers[name][:circuits].length
+            line += " "
+          elsif !(name == v.last[0])
+            line += ", "
+          end
+          i = i + 1
+         }
+      end
+      puts line
+    end
+  end
+
   def parseAndFill(file)
     begin
       line_num = 1
@@ -66,20 +123,16 @@ class JugglerFest
         elsif line =~ (/J *\w+ *H:\d+ *E:\d+ *P:\d+ *(\w+,)*\w+ *$/)
           temp = line.split(" ")
           p_name = temp[1].to_sym
-          @jugglers[p_name] = {:h => temp[2].split(":")[1], :e => temp[3].split(":")[1], :p => temp[4].split(":")[1], :circuit => nil}
+          @jugglers[p_name] = {:h => temp[2].split(":")[1], :e => temp[3].split(":")[1], :p => temp[4].split(":")[1], :circuits => {}}
           
           # iterate the circuit array and compute match 
-          #score to store it with each circuit
+          # score to store it with each circuit
           temp[5].split(",").each { |c|
             name = c.to_sym
             x = [@jugglers[p_name][:h], @jugglers[p_name][:e], @jugglers[p_name][:p]]
             y = [@circuits[name][:h], @circuits[name][:e], @circuits[name][:p]]
-            @jugglers[p_name][:circuit] = {c.to_sym => dotProduct(x, y)}
-           # p @jugglers[p_name][:circuit]
+            @jugglers[p_name][:circuits][c.to_sym] =  dotProduct(x, y)
           }
-
-          @jugglers[temp[1].to_sym][:circuit]
-
         elsif line.match(/([\w+])\n$/)
           raise "The file \"#{@filename}\" is not properly formatted\nline: #{line_num}\n\"#{line}\""
         end
@@ -90,6 +143,8 @@ class JugglerFest
     raise 
   end
   @jugglerPerCircuit = @jugglers.count / @circuits.count
+  p @jugglers
+  p @circuits
   puts "#{@jugglerPerCircuit} jugglers per circuit detected."
  end
 
