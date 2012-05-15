@@ -47,13 +47,13 @@ class JugglerFest
       puts "Incorrect file name or insufficient rights for " + @filename
     else
       file = File.new @filename, "r"
-      #begin
+      begin
         self.parseAndFill(file)
         self.fillMatches
         self.generateOutput
-      #rescue
-        #puts "Line up generation aborted because an exception was raised!"
-      #end
+      rescue
+        puts "Line up generation aborted because an exception was raised!"
+      end
     end  
   end
 
