@@ -102,11 +102,11 @@ class JugglerFest
           break 
         elsif @matchs[keys[i]].count < @jugglerPerCircuit
           @matchs[keys[i]] = @matchs[keys[i]] << [k, @jugglers[k][:circuits][keys[i]]]
-          break 
-        else
           @matchs[keys[i]].sort! do |a, b|
             b[1] <=> a[1]
-           end
+          end
+          break 
+        else
            array_size =  @matchs[keys[i]].count
           if @matchs[keys[i]][array_size - 1][1] < @jugglers[k][:circuits][keys[i]] 
             refreshJugglersQueue @matchs[keys[i]][array_size - 1][0], keys[i]
@@ -114,7 +114,7 @@ class JugglerFest
             @matchs[keys[i]][array_size - 1][0] = k
             @matches_allocated[k] = true
             @matchs[keys[i]].sort! do |a, b|
-            b[1] <=> a[1]
+              b[1] <=> a[1]
             end
             break 
           else
@@ -139,12 +139,11 @@ class JugglerFest
         elsif @matchs[keys[i]].count < @jugglerPerCircuit
           @matchs[keys[i]] = @matchs[keys[i]] << [k, @jugglers[k][:circuits][keys[i]]]
           @matches_allocated[k] = true
-          break 
-          #puts "Still place in array"
-        else
           @matchs[keys[i]].sort! do |a, b|
-            b[1] <=> a[1]
-           end
+          b[1] <=> a[1]
+          end
+          break 
+        else
            array_size =  @matchs[keys[i]].count
           if @matchs[keys[i]][array_size - 1][1] < @jugglers[k][:circuits][keys[i]]
             
