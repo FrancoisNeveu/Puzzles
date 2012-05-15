@@ -10,10 +10,13 @@ class JugglerFest
     @jugglerPerCircuit = 0
     # {:name => {:h => 0, :e => 0, }}
     @jugglers = Hash.new 
-
+    # {:juggler => [:c1, :c2, etc]
+    @matches_queue = Hash.new
+    # keep a track of who is allocated and who is not
+    # {:jugler => true/false}
+    @matches_allocated = Hash.new
     # {:name =>  {:h => 0, :e => 0, :circuit => []}}
     @circuits = Hash.new 
-
     # {:circuit_ name => [:name1, :name2,..]}}
     @matchs = Hash.new
   end
@@ -44,53 +47,125 @@ class JugglerFest
       puts "Incorrect file name or insufficient rights for " + @filename
     else
       file = File.new @filename, "r"
-    #  begin
+      #begin
         self.parseAndFill(file)
         self.fillMatches
         self.generateOutput
-     # rescue
-       # puts "Line up generation aborted because an exception was raised!"
+      #rescue
+        #puts "Line up generation aborted because an exception was raised!"
       #end
-    end
-   
+    end  
   end
 
-  # compute the lineup
-  def fillMatches 
+  # relaunch the lineup algorithm as long as there is jugglers 
+  # in the waiting queue
+  def fillMatches
+    matchFistPass
+    while !@matches_queue.empty?
+      if !@matches_allocated.has_value?(false)
+        break
+      end
+        matchRecursive(getHashCopy @matches_queue)
+    end
+  end
+
+  # get a copy of the waiting queue hash
+  def getHashCopy hashToCopy
+    newHash = Hash.new
+    newHash.update(hashToCopy)
+    return newHash
+  end
+
+  # Delete a circuit from the circuit list of a specific juggler
+  # remove it from the jugglers waiting list if in it
+  def refreshJugglersQueue juggler, circuit
+    if !@matches_queue.include? juggler
+      @matches_queue[juggler] = @jugglers[juggler][:circuits].keys   
+    end
+     @matches_queue[juggler].delete(circuit)
+     @matches_allocated[juggler] = false
+    if @matches_queue[juggler].empty?
+      @matches_queue.delete(juggler)
+      @matches_allocated.delete(juggler)
+    end
+  end
+
+  # Compute the lineup
+  def matchFistPass
     @jugglers.each do |k, v|
-      circuits = v[:circuits]
-      keys = circuits.keys
-      puts "========== KEY =========="
-      p keys
+      keys = v[:circuits].keys
       i = 0
       while i < keys.count
         if @matchs[keys[i]].nil?
           @matchs[keys[i]] = Array.new()
           @matchs[keys[i]]  = @matchs[keys[i]] << [k, @jugglers[k][:circuits][keys[i]]]
+          break 
         elsif @matchs[keys[i]].count < @jugglerPerCircuit
           @matchs[keys[i]] = @matchs[keys[i]] << [k, @jugglers[k][:circuits][keys[i]]]
-          p @matchs
-          puts "Still place in array"
+          break 
         else
-            puts "non more place"
-           p @matchs
-           ar = @matchs[keys[i]]
-           ar.sort_by! {|x, y| y <=> x[1]}
-           @matchs[keys[i]] = ar
-           p @matchs
-            array_size =  @matchs[keys[i]].count
-          if @matchs[keys[i]][array_size - 1][1] < circuits[keys[i]] 
-            @matchs[keys[i]][array_size - 1][1] = circuits[keys[i]]
+          @matchs[keys[i]].sort! do |a, b|
+            b[1] <=> a[1]
+           end
+           array_size =  @matchs[keys[i]].count
+          if @matchs[keys[i]][array_size - 1][1] < @jugglers[k][:circuits][keys[i]] 
+            refreshJugglersQueue @matchs[keys[i]][array_size - 1][0], keys[i]
+            @matchs[keys[i]][array_size - 1][1] = @jugglers[k][:circuits][keys[i]] 
+            @matchs[keys[i]][array_size - 1][0] = k
+            @matches_allocated[k] = true
+            @matchs[keys[i]].sort! do |a, b|
+            b[1] <=> a[1]
+            end
+            break 
+          else
+            refreshJugglersQueue k, keys[i]
           end
         end
       i = i + 1
       end 
-      puts "player #{k.inspect} treated || @matchs : #{@matchs}"
     end
   end
 
+  def matchRecursive matches
+    matches.each do |k, keys|
+      i = 0
+      while i < keys.count and (@matches_allocated[k] == false)
+          
+         if @matchs[keys[i]].nil?
+          @matchs[keys[i]] = Array.new()
+          @matchs[keys[i]]  = @matchs[keys[i]] << [k, @jugglers[k][:circuits][keys[i]]]
+          @matches_allocated[k] = true
+          break 
+        elsif @matchs[keys[i]].count < @jugglerPerCircuit
+          @matchs[keys[i]] = @matchs[keys[i]] << [k, @jugglers[k][:circuits][keys[i]]]
+          @matches_allocated[k] = true
+          break 
+          #puts "Still place in array"
+        else
+          @matchs[keys[i]].sort! do |a, b|
+            b[1] <=> a[1]
+           end
+           array_size =  @matchs[keys[i]].count
+          if @matchs[keys[i]][array_size - 1][1] < @jugglers[k][:circuits][keys[i]]
+            
+            refreshJugglersQueue @matchs[keys[i]][array_size - 1][0], keys[i]
+            @matchs[keys[i]][array_size - 1][1] = @jugglers[k][:circuits][keys[i]] 
+            @matchs[keys[i]][array_size - 1][0] = k
+            @matches_allocated[k] = true
+            @matchs[keys[i]].sort! do |a, b|
+            b[1] <=> a[1]
+            end
+            break 
+          else
+            refreshJugglersQueue k, keys[i]
+          end
+        end
+      i = i + 1
+      end 
+    end
+  end
 
-  def generateOutput
+    def generateOutput
     file  = File.new( @outputname, "w")
     @matchs.each do |k, v|
       line = ""
@@ -98,7 +173,8 @@ class JugglerFest
       v.each do |name, value|
         line += name.to_s + " "
         i = 1
-        @jugglers[name][:circuits].each { |c_name, dot|
+        circuit_list = @jugglers[name][:circuits]
+        circuit_list.each { |c_name, dot|
           line += c_name.to_s + ":" + dot.to_i.to_s
           if i < @jugglers[name][:circuits].length
             line += " "
@@ -108,8 +184,9 @@ class JugglerFest
           i = i + 1
          }
       end
-      puts line
+      file.puts line
     end
+    file.close
   end
 
   def parseAndFill(file)
@@ -138,25 +215,25 @@ class JugglerFest
         end
       line_num += 1
       end
+      file.close
   rescue => err
+    file.close
     puts "File Syntax Exception: #{err}"
     raise 
   end
   @jugglerPerCircuit = @jugglers.count / @circuits.count
-  p @jugglers
-  p @circuits
-  puts "#{@jugglerPerCircuit} jugglers per circuit detected."
+  puts "#{@jugglerPerCircuit} jugglers per circuit detected in file '#{@filename}'."
  end
-
 end
+
 # Will hold the options parsed from comand line
 options = {}
 
 optparse = OptionParser.new do |opts|
   # Help screen
-  opts.banner = "Triangle Solver V0.1, proudly made by Francois Neveu"
+  opts.banner = "jugglefest generator V0.1, proudly made by Francois Neveu"
   opts.banner += " for Yodle :)\nTake a look at my resume  http://linkd.in/K6rv0T\n"
-  opts.banner += "Usage: triangle_solver.rb options File1 File2 ..."
+  opts.banner += "Usage: jugglefest.rb options inputFile ouputFile"
   
   # This displays the help screen
   opts.on( '-h', '--help', 'Display this screen' ) do
@@ -171,9 +248,14 @@ lineupGenerator = JugglerFest.new
 
 
 # Set input file and output file name
-# lineupGenerator.setFilenames(ARGV.first.to_s, ARGV.last.to_s)
-lineupGenerator.setFilenames("jugglefest.txt", "jugglefest_output.txt")
-# Launch the computation
-lineupGenerator.generate
+if (!ARGV[0].nil? and !ARGV[1].nil?)
+  lineupGenerator.setFilenames(ARGV[0].to_s, ARGV[1].to_s)
+  lineupGenerator.generate
+  puts "JuggleFest lineup successfully generated in the file '#{ARGV[1].to_s}'"
+elsif ARGV.length != 2
+    puts "WARNING: wrong number of argument"
+    puts "use -h option for usage"
+else
 
-puts "Lineup generation done, thanks for looking at my application :)"
+end
+
